@@ -6,3 +6,4 @@ pydantic
 pydub
 torch
 torchaudio
+transformers==4.33.0

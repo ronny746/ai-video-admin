@@ -157,8 +157,14 @@ export default function Home() {
                 </p>
                 <div style={{ marginTop: '0.5rem' }}>
                   <span className={`status-badge status-${story.status}`}>
-                    {story.status === 'completed' ? 'तैयार है' : story.status === 'processing' ? 'बना रहा है...' : 'फ़ेल हो गया'}
+                    {story.status === 'completed' ? 'तैयार है' : story.status === 'processing' ? 'आवाज़ बन रही है...' : 'फ़ेल हो गया'}
                   </span>
+                  {story.error && (
+                    <p style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '0.5rem' }}>
+                      <AlertCircle size={14} style={{ verticalAlign: 'middle', marginRight: '4px' }} />
+                      Error: {story.error}
+                    </p>
+                  )}
                 </div>
               </div>
               <div style={{ display: 'flex', gap: '1rem' }}>

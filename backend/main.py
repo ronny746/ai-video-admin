@@ -9,6 +9,9 @@ import torch
 from TTS.api import TTS
 import time
 
+# Auto-agree to Coqui TOS
+os.environ["COQUI_TOS_AGREED"] = "1"
+
 app = FastAPI()
 
 # Enable CORS for Next.js frontend
@@ -67,7 +70,7 @@ async def generate_story(request: StoryRequest, background_tasks: BackgroundTask
         "title": request.title,
         "status": "processing",
         "created_at": time.time(),
-        "segments": [s.dict() for s in request.segments],
+        "segments": [s.model_dump() for s in request.segments],
         "audio_files": []
     }
     
