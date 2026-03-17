@@ -4,7 +4,10 @@ import { useState, useEffect } from 'react'
 import { Plus, Trash2, Send, Play, FileText, CheckCircle2, AlertCircle, RefreshCcw } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
-const API_URL = 'http://localhost:8000'
+// Use environment variable or fallback to the current domain's IP on port 8000
+const API_URL = typeof window !== 'undefined' 
+  ? `http://${window.location.hostname}:8000` 
+  : 'http://localhost:8000';
 
 export default function Home() {
   const [title, setTitle] = useState('')
