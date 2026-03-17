@@ -6,11 +6,12 @@ const path = require("path");
 const app = express();
 app.use(express.json());
 
-// ✅ Correct output folder
-const OUTPUT = path.join(__dirname, "tts", "output");
-const MODELS = path.join(__dirname, "tts", "models");
+// === Config ===
+const HOST = "http://187.127.131.55:3000"; // server ka base URL
+const OUTPUT = path.join(__dirname, "tts", "output"); // correct path
+const MODELS = "/root/tts/models";
 
-// helper to run shell commands
+// Helper function to run shell commands
 function run(cmd) {
   try {
     execSync(cmd);
@@ -19,19 +20,22 @@ function run(cmd) {
   }
 }
 
-// unique filename generator
+// Unique ID generator
 function uid() {
   return Date.now() + "_" + Math.floor(Math.random() * 1000);
 }
 
-// ensure output folder exists
-if (!fs.existsSync(OUTPUT)) fs.mkdirSync(OUTPUT, { recursive: true });
+// Ensure output folder exists
+if (!fs.existsSync(OUTPUT)) {
+  fs.mkdirSync(OUTPUT, { recursive: true });
+}
 
-// ============================================
-// 🎧 1. SINGLE VOICE API → MP3
-// ============================================
+// ========================
+// 1️⃣ SINGLE VOICE (MP3)
+// ========================
 app.post("/tts-single", (req, res) => {
   const { text, model = "hi_IN-pratham-medium.onnx" } = req.body;
+
   const id = uid();
   const wav = path.join(OUTPUT, `${id}.wav`);
   const mp3 = path.join(OUTPUT, `${id}.mp3`);
@@ -39,14 +43,15 @@ app.post("/tts-single", (req, res) => {
   run(`echo "${text}" | piper -m ${MODELS}/${model} -f ${wav}`);
   run(`ffmpeg -i ${wav} -codec:a libmp3lame -qscale:a 2 ${mp3} -y`);
 
-  res.json({ url: `/output/${id}.mp3` });
+  res.json({ url: `${HOST}/output/${id}.mp3` });
 });
 
-// ============================================
-// 🎭 2. MULTI VOICE API → MP3
-// ============================================
+// ========================
+// 2️⃣ MULTI VOICE (MP3)
+// ========================
 app.post("/tts-multi", (req, res) => {
   const { lines } = req.body;
+
   const id = uid();
   let files = [];
 
@@ -69,16 +74,16 @@ app.post("/tts-multi", (req, res) => {
   run(`ffmpeg -f concat -safe 0 -i ${listPath} -c copy ${wavFinal} -y`);
   run(`ffmpeg -i ${wavFinal} -codec:a libmp3lame -qscale:a 2 ${mp3Final} -y`);
 
-  res.json({ url: `/output/${id}.mp3` });
+  res.json({ url: `${HOST}/output/${id}.mp3` });
 });
 
-// ============================================
-// 🎬 3. BACKGROUND MUSIC MIX → MP3
-// ============================================
+// ========================
+// 3️⃣ BACKGROUND MUSIC MIX (MP3)
+// ========================
 app.post("/tts-bg", (req, res) => {
   const { text, music = "bg.mp3" } = req.body;
-  const id = uid();
 
+  const id = uid();
   const voice = path.join(OUTPUT, `${id}_voice.wav`);
   const mixed = path.join(OUTPUT, `${id}_mix.wav`);
   const final = path.join(OUTPUT, `${id}.mp3`);
@@ -87,16 +92,16 @@ app.post("/tts-bg", (req, res) => {
   run(`ffmpeg -i ${voice} -i ${OUTPUT}/${music} -filter_complex "[1:a]volume=0.3[a1];[0:a][a1]amix=inputs=2" ${mixed} -y`);
   run(`ffmpeg -i ${mixed} -codec:a libmp3lame -qscale:a 2 ${final} -y`);
 
-  res.json({ url: `/output/${id}.mp3` });
+  res.json({ url: `${HOST}/output/${id}.mp3` });
 });
 
-// ============================================
-// 🔥 4. PITCH FIX (ROHAN → MP3)
-// ============================================
+// ========================
+// 4️⃣ PITCH FIX (ROHAN → MP3)
+// ========================
 app.post("/tts-pitch", (req, res) => {
   const { text } = req.body;
-  const id = uid();
 
+  const id = uid();
   const raw = path.join(OUTPUT, `${id}_raw.wav`);
   const fixed = path.join(OUTPUT, `${id}_fixed.wav`);
   const final = path.join(OUTPUT, `${id}.mp3`);
@@ -105,17 +110,17 @@ app.post("/tts-pitch", (req, res) => {
   run(`ffmpeg -i ${raw} -filter:a "asetrate=44100*1.1,atempo=1.0" ${fixed} -y`);
   run(`ffmpeg -i ${fixed} -codec:a libmp3lame -qscale:a 2 ${final} -y`);
 
-  res.json({ url: `/output/${id}.mp3` });
+  res.json({ url: `${HOST}/output/${id}.mp3` });
 });
 
-// ============================================
+// ========================
 // 🌐 STATIC FILE ACCESS
-// ============================================
-// Serve output and samples
+// ========================
 app.use("/output", express.static(OUTPUT));
-app.use("/output/samples", express.static(path.join(OUTPUT, "samples")));
 
-// ============================================
+// ========================
 // 🚀 START SERVER
-// ============================================
-app.listen(3000, () => console.log("🚀 TTS server running on port 3000"));
+// ========================
+app.listen(3000, () => {
+  console.log("🚀 Server running on port 3000");
+});
