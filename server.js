@@ -6,11 +6,14 @@ const path = require("path");
 const app = express();
 app.use(express.json());
 
-// OUTPUT folder inside tts
+// Correct output and models paths
 const OUTPUT = path.join(__dirname, "tts", "output");
 const MODELS = path.join(__dirname, "tts", "models");
 
-// Helper to run shell commands
+// Ensure output exists
+if (!fs.existsSync(OUTPUT)) fs.mkdirSync(OUTPUT, { recursive: true });
+
+// Helper to run shell safely
 function run(cmd) {
   try {
     execSync(cmd, { stdio: "inherit" });
@@ -19,28 +22,30 @@ function run(cmd) {
   }
 }
 
-// Unique ID generator for filenames
+// Unique ID for files
 function uid() {
   return Date.now() + "_" + Math.floor(Math.random() * 1000);
 }
 
-// Ensure OUTPUT folder exists
-if (!fs.existsSync(OUTPUT)) fs.mkdirSync(OUTPUT, { recursive: true });
+// Escape shell text
+function escapeShell(text) {
+  return text.replace(/(["$`\\])/g, "\\$1");
+}
 
-// 🌟 1. SINGLE VOICE API
+// 🌟 1. SINGLE VOICE
 app.post("/tts-single", (req, res) => {
   const { text, model = "hi_IN-pratham-medium.onnx" } = req.body;
   const id = uid();
   const wav = path.join(OUTPUT, `${id}.wav`);
   const mp3 = path.join(OUTPUT, `${id}.mp3`);
 
-  run(`echo "${text}" | piper -m ${MODELS}/${model} -f ${wav}`);
+  run(`echo "${escapeShell(text)}" | piper -m ${MODELS}/${model} -f ${wav}`);
   run(`ffmpeg -y -i ${wav} -codec:a libmp3lame -qscale:a 2 ${mp3}`);
 
   res.json({ url: `/output/${id}.mp3` });
 });
 
-// 🌟 2. MULTI VOICE API
+// 🌟 2. MULTI VOICE
 app.post("/tts-multi", (req, res) => {
   const { lines } = req.body;
   const id = uid();
@@ -52,7 +57,7 @@ app.post("/tts-multi", (req, res) => {
     if (line.speaker === "female") model = "hi_IN-priyamvada-medium.onnx";
 
     const file = path.join(OUTPUT, `${id}_${i}.wav`);
-    run(`echo "${line.text}" | piper -m ${MODELS}/${model} -f ${file}`);
+    run(`echo "${escapeShell(line.text)}" | piper -m ${MODELS}/${model} -f ${file}`);
     files.push(file);
   });
 
@@ -77,14 +82,16 @@ app.post("/tts-bg", (req, res) => {
   const mixed = path.join(OUTPUT, `${id}_mix.wav`);
   const final = path.join(OUTPUT, `${id}.mp3`);
 
-  run(`echo "${text}" | piper -m ${MODELS}/hi_IN-pratham-medium.onnx -f ${voice}`);
-  run(`ffmpeg -y -i ${voice} -i ${OUTPUT}/${music} -filter_complex "[1:a]volume=0.3[a1];[0:a][a1]amix=inputs=2" ${mixed}`);
+  const musicPath = path.isAbsolute(music) ? music : path.join(OUTPUT, music);
+
+  run(`echo "${escapeShell(text)}" | piper -m ${MODELS}/hi_IN-pratham-medium.onnx -f ${voice}`);
+  run(`ffmpeg -y -i ${voice} -i ${musicPath} -filter_complex "[1:a]volume=0.3[a1];[0:a][a1]amix=inputs=2" ${mixed}`);
   run(`ffmpeg -y -i ${mixed} -codec:a libmp3lame -qscale:a 2 ${final}`);
 
   res.json({ url: `/output/${id}.mp3` });
 });
 
-// 🌟 4. PITCH FIX (ROHAN)
+// 🌟 4. PITCH FIX
 app.post("/tts-pitch", (req, res) => {
   const { text } = req.body;
   const id = uid();
@@ -93,17 +100,17 @@ app.post("/tts-pitch", (req, res) => {
   const fixed = path.join(OUTPUT, `${id}_fixed.wav`);
   const final = path.join(OUTPUT, `${id}.mp3`);
 
-  run(`echo "${text}" | piper -m ${MODELS}/hi_IN-rohan-medium.onnx -f ${raw}`);
+  run(`echo "${escapeShell(text)}" | piper -m ${MODELS}/hi_IN-rohan-medium.onnx -f ${raw}`);
   run(`ffmpeg -y -i ${raw} -filter:a "asetrate=44100*1.1,atempo=1.0" ${fixed}`);
   run(`ffmpeg -y -i ${fixed} -codec:a libmp3lame -qscale:a 2 ${final}`);
 
   res.json({ url: `/output/${id}.mp3` });
 });
 
-// 🌐 STATIC FILES
+// 🌐 Serve static files
 app.use("/output", express.static(OUTPUT));
 
-// 🚀 START SERVER
+// 🚀 Start server
 app.listen(3000, () => {
-  console.log("🚀 TTS API running on http://localhost:3000");
+  console.log("🚀 TTS API running on port 3000");
 });
