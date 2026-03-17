@@ -3,6 +3,7 @@ const { execSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 
+
 const app = express();
 app.use(express.json());
 
@@ -18,91 +19,109 @@ function run(cmd) {
   }
 }
 
+// unique name generator
+function uid() {
+  return Date.now() + "_" + Math.floor(Math.random() * 1000);
+}
+
 // ensure output folder
 if (!fs.existsSync(OUTPUT)) {
   fs.mkdirSync(OUTPUT, { recursive: true });
 }
 
 //////////////////////////////////////////////////////////////////
-// 🎧 1. SINGLE VOICE API
+// 🎧 1. SINGLE VOICE (MP3)
 //////////////////////////////////////////////////////////////////
 app.post("/tts-single", (req, res) => {
   const { text, model = "hi_IN-pratham-medium.onnx" } = req.body;
 
-  const file = path.join(OUTPUT, "single.wav");
+  const id = uid();
+  const wav = path.join(OUTPUT, `${id}.wav`);
+  const mp3 = path.join(OUTPUT, `${id}.mp3`);
 
-  run(`echo "${text}" | piper -m ${MODELS}/${model} -f ${file}`);
+  run(`echo "${text}" | piper -m ${MODELS}/${model} -f ${wav}`);
+  run(`ffmpeg -i ${wav} -codec:a libmp3lame -qscale:a 2 ${mp3} -y`);
 
-  res.json({ url: `/output/single.wav` });
+  res.json({ url: `/output/${id}.mp3` });
 });
 
 //////////////////////////////////////////////////////////////////
-// 🎭 2. MULTI VOICE API
+// 🎭 2. MULTI VOICE (MP3)
 //////////////////////////////////////////////////////////////////
 app.post("/tts-multi", (req, res) => {
   const { lines } = req.body;
 
+  const id = uid();
   let files = [];
 
   lines.forEach((line, i) => {
     let model = "hi_IN-pratham-medium.onnx";
 
-    if (line.speaker === "male")
-      model = "hi_IN-rohan-medium.onnx";
-    if (line.speaker === "female")
-      model = "hi_IN-priyamvada-medium.onnx";
+    if (line.speaker === "male") model = "hi_IN-rohan-medium.onnx";
+    if (line.speaker === "female") model = "hi_IN-priyamvada-medium.onnx";
 
-    const file = path.join(OUTPUT, `${i}.wav`);
+    const file = path.join(OUTPUT, `${id}_${i}.wav`);
 
     run(`echo "${line.text}" | piper -m ${MODELS}/${model} -f ${file}`);
-
     files.push(file);
   });
 
-  const listPath = path.join(OUTPUT, "list.txt");
+  const listPath = path.join(OUTPUT, `${id}_list.txt`);
 
   fs.writeFileSync(
     listPath,
     files.map(f => `file '${f}'`).join("\n")
   );
 
-  const final = path.join(OUTPUT, "multi.wav");
+  const wavFinal = path.join(OUTPUT, `${id}.wav`);
+  const mp3Final = path.join(OUTPUT, `${id}.mp3`);
 
-  run(`ffmpeg -f concat -safe 0 -i ${listPath} -c copy ${final} -y`);
+  run(`ffmpeg -f concat -safe 0 -i ${listPath} -c copy ${wavFinal} -y`);
+  run(`ffmpeg -i ${wavFinal} -codec:a libmp3lame -qscale:a 2 ${mp3Final} -y`);
 
-  res.json({ url: `/output/multi.wav` });
+  res.json({ url: `/output/${id}.mp3` });
 });
 
 //////////////////////////////////////////////////////////////////
-// 🎬 3. BACKGROUND MUSIC MIX
+// 🎬 3. BACKGROUND MUSIC MIX (MP3)
 //////////////////////////////////////////////////////////////////
 app.post("/tts-bg", (req, res) => {
   const { text, music = "bg.mp3" } = req.body;
 
-  const voice = path.join(OUTPUT, "voice.wav");
-  const final = path.join(OUTPUT, "bg_mix.wav");
+  const id = uid();
+
+  const voice = path.join(OUTPUT, `${id}_voice.wav`);
+  const mixed = path.join(OUTPUT, `${id}_mix.wav`);
+  const final = path.join(OUTPUT, `${id}.mp3`);
 
   run(`echo "${text}" | piper -m ${MODELS}/hi_IN-pratham-medium.onnx -f ${voice}`);
 
-  run(`ffmpeg -i ${voice} -i ${OUTPUT}/${music} -filter_complex "[1:a]volume=0.3[a1];[0:a][a1]amix=inputs=2" ${final} -y`);
+  run(`ffmpeg -i ${voice} -i ${OUTPUT}/${music} -filter_complex "[1:a]volume=0.3[a1];[0:a][a1]amix=inputs=2" ${mixed} -y`);
 
-  res.json({ url: `/output/bg_mix.wav` });
+  run(`ffmpeg -i ${mixed} -codec:a libmp3lame -qscale:a 2 ${final} -y`);
+
+  res.json({ url: `/output/${id}.mp3` });
 });
 
 //////////////////////////////////////////////////////////////////
-// 🔥 4. PITCH FIX (ROHAN VOICE IMPROVE)
+// 🔥 4. PITCH FIX (ROHAN → MP3)
 //////////////////////////////////////////////////////////////////
 app.post("/tts-pitch", (req, res) => {
   const { text } = req.body;
 
-  const raw = path.join(OUTPUT, "raw.wav");
-  const final = path.join(OUTPUT, "pitch.wav");
+  const id = uid();
+
+  const raw = path.join(OUTPUT, `${id}_raw.wav`);
+  const fixed = path.join(OUTPUT, `${id}_fixed.wav`);
+  const final = path.join(OUTPUT, `${id}.mp3`);
 
   run(`echo "${text}" | piper -m ${MODELS}/hi_IN-rohan-medium.onnx -f ${raw}`);
 
-  run(`ffmpeg -i ${raw} -filter:a "asetrate=44100*1.1,atempo=1.0" ${final} -y`);
+  run(`ffmpeg -i ${raw} -filter:a "asetrate=44100*1.1,atempo=1.0" ${fixed} -y`);
 
-  res.json({ url: `/output/pitch.wav` });
+  run(`ffmpeg -i ${fixed} -codec:a libmp3lame -qscale:a 2 ${final} -y`);
+
+  res.json({ url: `/output/${id}.mp3` });
 });
 
 //////////////////////////////////////////////////////////////////
