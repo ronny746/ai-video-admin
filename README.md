@@ -11,18 +11,23 @@
 
 ## सेटअप निर्देश (Setup Instructions)
 
-### 1. Python Backend सेटअप
+### 1. Python Backend सेटअप (Corrected for VPS)
 ```bash
 cd backend
-# वर्चुअल एनवायरनमेंट बनायें (Recommended)
-python -m venv venv
+
+# ज़रुरत पड़ने पर venv इनस्टॉल करें (Ubuntu/Debian के लिए)
+sudo apt update && sudo apt install -y python3-venv python3-full ffmpeg
+
+# वर्चुअल एनवायरनमेंट बनायें
+python3 -m venv venv
 source venv/bin/activate
 
 # डिपेंडेंसी इनस्टॉल करें
+pip install --upgrade pip
 pip install -r requirements.txt
 
 # मॉडल पहली बार डाउनलोड करें
-python setup_models.py
+python3 setup_models.py
 ```
 
 ### 2. Frontend सेटअप

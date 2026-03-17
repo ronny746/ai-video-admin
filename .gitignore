@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+
+# Models (Large Files)
+backend/models/
+*.bin
+*.pth
+
+# Next.js
+frontend/.next/
+frontend/node_modules/
+frontend/.env.local
+
+# Storage (Only keep the structure, not the files)
+storage/audio/*
+!storage/audio/.gitkeep
+storage/metadata/*
+!storage/metadata/.gitkeep
+
+# OS
+.DS_Store
