@@ -88,22 +88,30 @@ def process_tts(story_id: str, request: StoryRequest):
     
     try:
         for i, segment in enumerate(request.segments):
+            # Real-time update for each part
+            with open(os.path.join(METADATA_DIR, f"{story_id}.json"), "r") as f:
+                metadata = json.load(f)
+            metadata["status"] = f"Generating part {i+1}/{len(request.segments)}"
+            with open(os.path.join(METADATA_DIR, f"{story_id}.json"), "w") as f:
+                json.dump(metadata, f)
+
             filename = f"{story_id}_part_{i}.wav"
             filepath = os.path.join(AUDIO_DIR, filename)
             
-            # For characters, we could use different speaker names or cloning
-            # For now, we use default speaker with Hindi language
-            # XTTS supports language="hi"
-            
-            # Note: In a real scenario, we'd map character names to specific speaker_wavs
-            # For simplicity, we use one of the built-in speakers
             tts.tts_to_file(
                 text=segment.text,
-                speaker="Ana Elizabet", # Example speaker
+                speaker="Ana Elizabet",
                 language="hi",
                 file_path=filepath
             )
             output_files.append({"part": i, "file": filename, "character": segment.character})
+
+            # Save progress after each file
+            with open(os.path.join(METADATA_DIR, f"{story_id}.json"), "r") as f:
+                update_meta = json.load(f)
+            update_meta["audio_files"] = output_files
+            with open(os.path.join(METADATA_DIR, f"{story_id}.json"), "w") as f:
+                json.dump(update_meta, f)
 
         # Update metadata to "completed"
         with open(os.path.join(METADATA_DIR, f"{story_id}.json"), "r") as f:
